@@ -21,8 +21,6 @@ COPY backend/ .
 # Instalar dependências Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python migrate_railway.py
-
 # Criar diretório para banco de dados
 RUN mkdir -p src/database
 
@@ -30,4 +28,4 @@ RUN mkdir -p src/database
 EXPOSE 5000
 
 # Comando para executar a aplicação
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "src.wsgi:app"]
+CMD ["python", "migrate_railway.py"]
