@@ -16,15 +16,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copiar arquivos de dependências
-COPY backend/requirements-prod.txt requirements.txt
+COPY backend/ .
 
 # Instalar dependências Python
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN python migrate_railway.py
-
-# Copiar código do backend
-COPY backend/ .
 
 # Criar diretório para banco de dados
 RUN mkdir -p src/database
@@ -33,4 +30,4 @@ RUN mkdir -p src/database
 EXPOSE 5000
 
 # Comando para executar a aplicação
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "wsgi:app"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "src.wsgi:app"]
