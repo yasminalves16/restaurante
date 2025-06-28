@@ -10,7 +10,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import './App.css';
 
 // Configuração da API - URL de produção
-const API_BASE_URL = 'https://cliente-casadonorte-f44g6ad8w-yasmin-alves-projects-95c82c0c.vercel.app/api';
+const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
 
 // Componente para seleção do tipo de pedido
 function OrderTypeSelection({ onSelectType }) {
@@ -312,6 +312,9 @@ function CartSidebar({ cart, isOpen, onClose, onUpdateQuantity, onRemoveItem, on
                     <span className='w-8 text-center'>{item.quantity}</span>
                     <Button size='sm' variant='outline' onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}>
                       <Plus className='w-3 h-3' />
+                    </Button>
+                    <Button size='sm' variant='destructive' onClick={() => onRemoveItem(item.id)}>
+                      Remover
                     </Button>
                   </div>
                 </div>

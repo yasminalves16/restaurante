@@ -38,10 +38,10 @@ Após o deploy do backend, atualize as URLs nos frontends:
 
 ```javascript
 // Em frontend/client/src/App.jsx
-const API_BASE_URL = 'https://sua-api-backend.com/api';
+const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
 
 // Em frontend/restaurant/src/App.jsx
-const API_BASE_URL = 'https://sua-api-backend.com/api';
+const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
 ```
 
 ### 3. Configurar CORS no Backend
