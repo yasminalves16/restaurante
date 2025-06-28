@@ -133,3 +133,17 @@ jspm_packages/
 
 # TernJS port file
 .tern-port
+
+# Ignorar arquivos de documentação e scripts de deploy (exceto README.md principal)
+DEPLOY-*.md
+deploy*.sh
+OPCOES-DEPLOY-GRATUITO.md
+README-VERCEL.md
+README-PROD.md
+URLS-PRODUCAO.md
+docker-compose.yml
+Dockerfile
+*.sample
+
+# Manter o README.md principal
+!README.md
