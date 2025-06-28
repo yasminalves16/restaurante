@@ -13,7 +13,7 @@ import { Link, Route, BrowserRouter as Router, Routes, useLocation } from 'react
 import './App.css';
 
 // Configuração da API - URL de produção
-const API_BASE_URL = 'https://restaurante-casadonorte-c4o3ymzy7.vercel.app/api';
+const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
 
 // Componente de navegação
 function Navigation() {
