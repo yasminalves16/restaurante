@@ -901,7 +901,7 @@ function OrderManagement() {
                 </div>
 
                 <div>
-                  <h4 className='font-medium'>Itens do Pedido</h4>
+                  <h4 className='font-medium mb-2'>Itens do Pedido</h4>
                   <div className='space-y-2'>
                     {selectedOrder.items.map((item) => (
                       <div key={item.id} className='flex justify-between text-sm'>

@@ -40,10 +40,10 @@ def create_order():
     """Criar novo pedido"""
     data = request.get_json()
 
-    if not data or not data.get('customer_name') or not data.get('items') or not data.get('order_type'):
+    if not data or not data.get('customer_phone') or not data.get('items') or not data.get('order_type'):
         return jsonify({
             'success': False,
-            'message': 'Nome do cliente, itens e tipo de pedido são obrigatórios'
+            'message': 'Telefone, itens e tipo de pedido são obrigatórios'
         }), 400
 
     try:
@@ -90,26 +90,17 @@ def create_order():
         customer_email = data.get('customer_email', '').strip()
 
         if customer_phone:
-            # Tentar encontrar por telefone
-            user = User.query.filter_by(customer_phone=customer_phone).first()
-
-        if not user and customer_email:
-            # Tentar encontrar por email
-            user = User.query.filter_by(customer_email=customer_email).first()
-
-        if user:
-            # Atualizar informações do usuário existente
-            user.customer_name = data['customer_name']
-            if customer_phone:
-                user.customer_phone = customer_phone
-            if customer_email:
-                user.customer_email = customer_email
-            if data.get('delivery_address'):
-                user.delivery_address = data['delivery_address']
+            # Usar o novo método para buscar ou criar usuário por telefone
+            user = User.find_or_create_by_phone(
+                phone=customer_phone,
+                name=data.get('customer_name'),  # Nome pode ser None
+                email=customer_email,
+                address=data.get('delivery_address', '')
+            )
         else:
-            # Criar novo usuário
+            # Criar novo usuário sem telefone (caso raro)
             user = User(
-                customer_name=data['customer_name'],
+                customer_name=data.get('customer_name'),
                 customer_phone=customer_phone,
                 customer_email=customer_email,
                 delivery_address=data.get('delivery_address', ''),
@@ -122,7 +113,7 @@ def create_order():
         # Criar o pedido
         order = Order(
             user_id=user.id,
-            customer_name=data['customer_name'],
+            customer_name=data.get('customer_name', ''),  # Nome pode ser vazio
             customer_phone=customer_phone,
             customer_email=customer_email,
             order_type=data['order_type'],

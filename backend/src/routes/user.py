@@ -141,3 +141,81 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     return '', 204
+
+# Novas rotas para autenticação por telefone
+@user_bp.route('/auth/phone', methods=['POST'])
+def authenticate_by_phone():
+    """Autenticar usuário por telefone"""
+    data = request.get_json()
+
+    if not data or not data.get('phone'):
+        return jsonify({
+            'success': False,
+            'message': 'Telefone é obrigatório'
+        }), 400
+
+    try:
+        phone = data['phone'].strip()
+        name = data.get('name', '').strip() or None
+        email = data.get('email', '').strip() or None
+        address = data.get('address', '').strip() or None
+
+        # Busca ou cria usuário
+        user = User.find_or_create_by_phone(phone, name, email, address)
+
+        # Busca pedidos do usuário
+        orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
+
+        # Busca pedido atual (mais recente com status pendente ou preparando)
+        current_order = Order.query.filter(
+            Order.user_id == user.id,
+            Order.status.in_(['pendente', 'preparando'])
+        ).order_by(Order.created_at.desc()).first()
+
+        return jsonify({
+            'success': True,
+            'user': user.to_dict(),
+            'orders': [order.to_dict() for order in orders],
+            'current_order': current_order.to_dict() if current_order else None,
+            'message': 'Usuário autenticado com sucesso'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erro na autenticação: {str(e)}'
+        }), 500
+
+@user_bp.route('/users/phone/<phone>', methods=['GET'])
+def get_user_by_phone(phone):
+    """Buscar usuário por telefone"""
+    try:
+        user = User.find_by_phone(phone)
+
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': 'Usuário não encontrado'
+            }), 404
+
+        # Busca pedidos do usuário
+        orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
+
+        # Busca pedido atual
+        current_order = Order.query.filter(
+            Order.user_id == user.id,
+            Order.status.in_(['pendente', 'preparando'])
+        ).order_by(Order.created_at.desc()).first()
+
+        return jsonify({
+            'success': True,
+            'user': user.to_dict(),
+            'orders': [order.to_dict() for order in orders],
+            'current_order': current_order.to_dict() if current_order else None
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erro ao buscar usuário: {str(e)}'
+        }), 500
