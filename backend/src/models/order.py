@@ -3,6 +3,7 @@ from datetime import datetime
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Relacionamento com usuário
     customer_name = db.Column(db.String(100), nullable=False)
     customer_phone = db.Column(db.String(20))
     customer_email = db.Column(db.String(120))
@@ -13,7 +14,7 @@ class Order(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relacionamento com itens do pedido
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
 
@@ -23,6 +24,7 @@ class Order(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'customer_name': self.customer_name,
             'customer_phone': self.customer_phone,
             'customer_email': self.customer_email,
@@ -44,7 +46,7 @@ class OrderItem(db.Model):
     unit_price = db.Column(db.Float, nullable=False)
     subtotal = db.Column(db.Float, nullable=False)
     notes = db.Column(db.Text)  # observações específicas do item
-    
+
     # Relacionamento com item do menu
     menu_item = db.relationship('MenuItem', backref='order_items', lazy=True)
 

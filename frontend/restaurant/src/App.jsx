@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { BarChart3, CheckCircle, Clock, Edit, Menu as MenuIcon, Package, Plus, ShoppingBag, Trash2, XCircle } from 'lucide-react';
+import { BarChart3, CheckCircle, Clock, Edit, Menu as MenuIcon, Package, Plus, ShoppingBag, Trash2, Users, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom';
 import './App.css';
+import { useIsMobile } from './hooks/use-mobile';
 
 // Configuração da API - URL de produção
 const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
@@ -18,12 +19,21 @@ const API_BASE_URL = 'https://restaurante-production-1f07.up.railway.app/api';
 // Componente de navegação
 function Navigation() {
   const location = useLocation();
+  const isMobile = useIsMobile();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: BarChart3 },
     { path: '/menu', label: 'Cardápio', icon: MenuIcon },
     { path: '/orders', label: 'Pedidos', icon: ShoppingBag },
+    { path: '/history', label: 'Histórico', icon: Users },
   ];
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setIsMenuOpen(false);
+    }
+  };
 
   return (
     <nav className='bg-white shadow-sm border-b'>
@@ -31,7 +41,45 @@ function Navigation() {
         <div className='flex items-center justify-between h-16'>
           <div className='flex items-center space-x-8'>
             <h1 className='text-xl font-bold text-gray-900'>Restaurante Admin</h1>
-            <div className='flex space-x-4'>
+
+            {/* Menu desktop */}
+            {!isMobile && (
+              <div className='flex space-x-4'>
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className='w-4 h-4' />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Botão do menu hambúrguer para mobile */}
+          {isMobile && (
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className='p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            >
+              {isMenuOpen ? <X className='w-6 h-6' /> : <MenuIcon className='w-6 h-6' />}
+            </button>
+          )}
+        </div>
+
+        {/* Menu mobile */}
+        {isMobile && isMenuOpen && (
+          <div className='border-t border-gray-200 py-4'>
+            <div className='flex flex-col space-y-2'>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -39,18 +87,19 @@ function Navigation() {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    onClick={handleNavClick}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
                       isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    <Icon className='w-4 h-4' />
+                    <Icon className='w-5 h-5' />
                     <span>{item.label}</span>
                   </Link>
                 );
               })}
             </div>
           </div>
-        </div>
+        )}
       </div>
     </nav>
   );
@@ -65,12 +114,24 @@ function Dashboard() {
     ready_orders: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [resultsPerPage, setResultsPerPage] = useState(5);
+
+  // Filtros adicionais
+  const [dateFilter, setDateFilter] = useState('');
+  const [addressFilter, setAddressFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
 
   useEffect(() => {
     fetchStats();
     fetchRecentOrders();
   }, []);
+
+  useEffect(() => {
+    filterOrders();
+  }, [activeFilter, allOrders, dateFilter, addressFilter, customerFilter, resultsPerPage]);
 
   const fetchStats = async () => {
     try {
@@ -89,6 +150,7 @@ function Dashboard() {
       const response = await fetch(`${API_BASE_URL}/orders`);
       const data = await response.json();
       if (data.success) {
+        setAllOrders(data.orders);
         setRecentOrders(data.orders.slice(0, 5));
       }
     } catch (error) {
@@ -96,6 +158,54 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterOrders = () => {
+    let filtered = [...allOrders];
+
+    // Filtro por status
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter((order) => order.status === activeFilter);
+    }
+
+    // Filtro por data
+    if (dateFilter) {
+      filtered = filtered.filter((order) => {
+        // Extrai a data no formato YYYY-MM-DD do created_at
+        const orderDate = new Date(order.created_at);
+        const orderDateStr = orderDate.toISOString().slice(0, 10); // YYYY-MM-DD
+        return orderDateStr === dateFilter;
+      });
+    }
+
+    // Filtro por endereço
+    if (addressFilter) {
+      filtered = filtered.filter(
+        (order) => order.delivery_address && order.delivery_address.toLowerCase().includes(addressFilter.toLowerCase())
+      );
+    }
+
+    // Filtro por nome do cliente
+    if (customerFilter) {
+      filtered = filtered.filter((order) => order.customer_name.toLowerCase().includes(customerFilter.toLowerCase()));
+    }
+
+    if (resultsPerPage === 'all') {
+      setRecentOrders(filtered);
+    } else {
+      setRecentOrders(filtered.slice(0, resultsPerPage));
+    }
+  };
+
+  const handleFilterClick = (filter) => {
+    setActiveFilter(filter);
+  };
+
+  const clearFilters = () => {
+    setActiveFilter('all');
+    setDateFilter('');
+    setAddressFilter('');
+    setCustomerFilter('');
   };
 
   const getStatusBadge = (status) => {
@@ -128,7 +238,12 @@ function Dashboard() {
 
       {/* Cards de estatísticas */}
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            activeFilter === 'all' ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+          }`}
+          onClick={() => handleFilterClick('all')}
+        >
           <CardContent className='p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -140,7 +255,12 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            activeFilter === 'pendente' ? 'ring-2 ring-yellow-500 bg-yellow-50' : ''
+          }`}
+          onClick={() => handleFilterClick('pendente')}
+        >
           <CardContent className='p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -152,7 +272,12 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            activeFilter === 'preparando' ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+          }`}
+          onClick={() => handleFilterClick('preparando')}
+        >
           <CardContent className='p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -164,7 +289,12 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+            activeFilter === 'pronto' ? 'ring-2 ring-green-500 bg-green-50' : ''
+          }`}
+          onClick={() => handleFilterClick('pronto')}
+        >
           <CardContent className='p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -180,12 +310,106 @@ function Dashboard() {
       {/* Pedidos recentes */}
       <Card>
         <CardHeader>
-          <CardTitle>Pedidos Recentes</CardTitle>
-          <CardDescription>Últimos 5 pedidos realizados</CardDescription>
+          <CardTitle>
+            Pedidos Recentes
+            {activeFilter !== 'all' && (
+              <Badge className='ml-2' variant='outline'>
+                {activeFilter === 'pendente' && 'Pendentes'}
+                {activeFilter === 'preparando' && 'Preparando'}
+                {activeFilter === 'pronto' && 'Prontos'}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            {activeFilter === 'all'
+              ? `Exibindo ${resultsPerPage === 'all' ? 'todos' : resultsPerPage} pedidos mais recentes`
+              : `Exibindo ${resultsPerPage === 'all' ? 'todos' : resultsPerPage} pedidos ${
+                  activeFilter === 'pendente' ? 'pendentes' : activeFilter === 'preparando' ? 'em preparação' : 'prontos'
+                }`}
+          </CardDescription>
         </CardHeader>
+        {/* Seletor de quantidade de resultados */}
+        <div className='px-6 pb-2 flex justify-end'>
+          <div className='flex items-center gap-2'>
+            <Label htmlFor='results-per-page' className='text-sm font-medium text-gray-700'>
+              Resultados por página:
+            </Label>
+            <select
+              id='results-per-page'
+              value={resultsPerPage}
+              onChange={(e) => setResultsPerPage(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+              className='border rounded px-2 py-1 text-sm outline-none'
+            >
+              <option value='all'>Todos</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={15}>15</option>
+              <option value={20}>20</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+        {/* Filtros adicionais */}
+        <div className='px-6 pb-4'>
+          <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+            <div>
+              <Label htmlFor='date-filter' className='text-sm font-medium text-gray-700'>
+                Data
+              </Label>
+              <Input
+                id='date-filter'
+                type='date'
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className='mt-1'
+                placeholder='Filtrar por data'
+              />
+            </div>
+
+            <div>
+              <Label htmlFor='customer-filter' className='text-sm font-medium text-gray-700'>
+                Cliente
+              </Label>
+              <Input
+                id='customer-filter'
+                type='text'
+                value={customerFilter}
+                onChange={(e) => setCustomerFilter(e.target.value)}
+                className='mt-1'
+                placeholder='Nome do cliente'
+              />
+            </div>
+
+            <div>
+              <Label htmlFor='address-filter' className='text-sm font-medium text-gray-700'>
+                Endereço
+              </Label>
+              <Input
+                id='address-filter'
+                type='text'
+                value={addressFilter}
+                onChange={(e) => setAddressFilter(e.target.value)}
+                className='mt-1'
+                placeholder='Endereço de entrega'
+              />
+            </div>
+
+            <div className='flex items-end'>
+              <Button variant='outline' onClick={clearFilters} className='w-full'>
+                Limpar Filtros
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <CardContent>
           {recentOrders.length === 0 ? (
-            <p className='text-gray-500 text-center py-4'>Nenhum pedido encontrado</p>
+            <p className='text-gray-500 text-center py-4'>
+              {activeFilter === 'all' && !dateFilter && !addressFilter && !customerFilter
+                ? 'Nenhum pedido encontrado'
+                : 'Nenhum pedido encontrado com os filtros aplicados'}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -193,6 +417,7 @@ function Dashboard() {
                   <TableHead>ID</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Endereço</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data</TableHead>
@@ -205,6 +430,15 @@ function Dashboard() {
                     <TableCell>{order.customer_name}</TableCell>
                     <TableCell>
                       <Badge variant='outline'>{order.order_type === 'delivery' ? 'Delivery' : 'Local'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {order.delivery_address ? (
+                        <span className='text-sm text-gray-600 max-w-xs truncate block' title={order.delivery_address}>
+                          {order.delivery_address}
+                        </span>
+                      ) : (
+                        <span className='text-sm text-gray-400'>-</span>
+                      )}
                     </TableCell>
                     <TableCell>R$ {order.total_amount.toFixed(2)}</TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
@@ -223,14 +457,12 @@ function Dashboard() {
 // Componente de gerenciamento do cardápio
 function MenuManagement() {
   const [menuItems, setMenuItems] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchMenuItems();
-    fetchCategories();
   }, []);
 
   const fetchMenuItems = async () => {
@@ -244,18 +476,6 @@ function MenuManagement() {
       console.error('Erro ao carregar cardápio:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/menu/categories`);
-      const data = await response.json();
-      if (data.success) {
-        setCategories(data.categories);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
     }
   };
 
@@ -277,7 +497,6 @@ function MenuManagement() {
 
       if (data.success) {
         fetchMenuItems();
-        fetchCategories();
         setIsDialogOpen(false);
         setEditingItem(null);
       } else {
@@ -339,7 +558,6 @@ function MenuManagement() {
             </DialogHeader>
             <MenuItemForm
               item={editingItem}
-              categories={categories}
               onSave={handleSaveItem}
               onCancel={() => {
                 setIsDialogOpen(false);
@@ -424,7 +642,7 @@ function MenuManagement() {
 }
 
 // Componente do formulário de item do cardápio
-function MenuItemForm({ item, categories, onSave, onCancel }) {
+function MenuItemForm({ item, onSave, onCancel }) {
   const [formData, setFormData] = useState({
     name: item?.name || '',
     description: item?.description || '',
@@ -545,7 +763,7 @@ function OrderManagement() {
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams();
-      if (statusFilter) params.append('status', statusFilter);
+      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
 
       const response = await fetch(`${API_BASE_URL}/orders?${params}`);
       const data = await response.json();
@@ -757,6 +975,249 @@ function OrderManagement() {
   );
 }
 
+// Componente de gerenciamento de histórico de clientes
+function CustomerHistory() {
+  const [users, setUsers] = useState([]);
+  const [userOrders, setUserOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [searchTerm, sortBy, sortOrder]);
+
+  const fetchUsers = async () => {
+    try {
+      const params = new URLSearchParams({
+        search: searchTerm,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      });
+
+      const response = await fetch(`${API_BASE_URL}/users?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserOrders = async (userId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/orders`);
+      const data = await response.json();
+
+      if (data.success) {
+        setUserOrders(data.orders);
+        setShowOrdersModal(true);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar pedidos do usuário:', error);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pendente: { color: 'bg-yellow-100 text-yellow-800', label: 'Pendente' },
+      preparando: { color: 'bg-blue-100 text-blue-800', label: 'Preparando' },
+      pronto: { color: 'bg-green-100 text-green-800', label: 'Pronto' },
+      entregue: { color: 'bg-gray-100 text-gray-800', label: 'Entregue' },
+      cancelado: { color: 'bg-red-100 text-red-800', label: 'Cancelado' },
+    };
+
+    const config = statusConfig[status] || statusConfig['pendente'];
+    return <Badge className={config.color}>{config.label}</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <div className='flex items-center justify-center h-64'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500'></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='space-y-6'>
+      <div className='flex items-center justify-between'>
+        <div>
+          <h2 className='text-2xl font-bold text-gray-900'>Histórico de Clientes</h2>
+          <p className='text-gray-600'>Visualize informações e histórico de pedidos dos clientes</p>
+        </div>
+      </div>
+
+      {/* Filtros e busca */}
+      <div className='flex flex-col sm:flex-row gap-4'>
+        <div className='flex-1'>
+          <Input
+            placeholder='Buscar por nome, telefone, email ou endereço...'
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className='w-full'
+          />
+        </div>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className='w-48'>
+            <SelectValue placeholder='Ordenar por' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='created_at'>Data de cadastro</SelectItem>
+            <SelectItem value='name'>Nome</SelectItem>
+            <SelectItem value='total_orders'>Quantidade de pedidos</SelectItem>
+            <SelectItem value='total_spent'>Total gasto</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortOrder} onValueChange={setSortOrder}>
+          <SelectTrigger className='w-32'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='desc'>Decrescente</SelectItem>
+            <SelectItem value='asc'>Crescente</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Tabela de clientes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Clientes ({users.length})</CardTitle>
+        </CardHeader>
+        <CardContent className='p-0'>
+          <div className='overflow-x-auto'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Endereço</TableHead>
+                  <TableHead className='text-center'>Pedidos</TableHead>
+                  <TableHead className='text-right'>Total Gasto</TableHead>
+                  <TableHead className='text-center'>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className='text-center text-gray-500 py-8'>
+                      Nenhum cliente encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div>
+                          <p className='font-medium'>{user.customer_name}</p>
+                          <p className='text-sm text-gray-500'>Cadastrado em {new Date(user.created_at).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='space-y-1'>
+                          {user.customer_phone && <p className='text-sm'>{user.customer_phone}</p>}
+                          {user.customer_email && <p className='text-sm text-gray-600'>{user.customer_email}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {user.delivery_address ? (
+                          <p className='text-sm text-gray-600 max-w-xs truncate' title={user.delivery_address}>
+                            {user.delivery_address}
+                          </p>
+                        ) : (
+                          <p className='text-sm text-gray-400'>Não informado</p>
+                        )}
+                      </TableCell>
+                      <TableCell className='text-center'>
+                        <Badge variant='secondary'>{user.total_orders}</Badge>
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <span className='font-medium text-green-600'>R$ {user.total_spent.toFixed(2)}</span>
+                      </TableCell>
+                      <TableCell className='text-center'>
+                        <Button size='sm' variant='outline' onClick={() => fetchUserOrders(user.id)} disabled={user.total_orders === 0}>
+                          <Package className='w-4 h-4 mr-1' />
+                          Ver Pedidos
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal com histórico de pedidos */}
+      <Dialog open={showOrdersModal} onOpenChange={setShowOrdersModal}>
+        <DialogContent className='max-w-4xl max-h-[80vh] overflow-y-auto'>
+          <DialogHeader>
+            <DialogTitle>Histórico de Pedidos</DialogTitle>
+            <DialogDescription>Todos os pedidos realizados por este cliente</DialogDescription>
+          </DialogHeader>
+
+          {userOrders.length === 0 ? (
+            <p className='text-gray-500 text-center py-8'>Nenhum pedido encontrado</p>
+          ) : (
+            <div className='space-y-4'>
+              {userOrders.map((order) => (
+                <Card key={order.id}>
+                  <CardHeader className='pb-3'>
+                    <div className='flex items-center justify-between'>
+                      <div>
+                        <CardTitle className='text-lg'>Pedido #{order.id}</CardTitle>
+                        <CardDescription>
+                          {new Date(order.created_at).toLocaleString('pt-BR')} • {order.order_type === 'delivery' ? 'Delivery' : 'Local'}
+                        </CardDescription>
+                      </div>
+                      <div className='text-right'>
+                        {getStatusBadge(order.status)}
+                        <p className='text-lg font-bold text-green-600 mt-1'>R$ {order.total_amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='space-y-3'>
+                      <div>
+                        <h4 className='font-medium mb-2'>Itens do Pedido</h4>
+                        <div className='space-y-1'>
+                          {order.items.map((item) => (
+                            <div key={item.id} className='flex justify-between text-sm'>
+                              <span>
+                                {item.quantity}x {item.menu_item.name}
+                              </span>
+                              <span>R$ {item.subtotal.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {order.notes && (
+                        <div>
+                          <h4 className='font-medium mb-1'>Observações</h4>
+                          <p className='text-sm text-gray-600'>{order.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function App() {
   return (
     <Router>
@@ -767,6 +1228,7 @@ function App() {
             <Route path='/' element={<Dashboard />} />
             <Route path='/menu' element={<MenuManagement />} />
             <Route path='/orders' element={<OrderManagement />} />
+            <Route path='/history' element={<CustomerHistory />} />
           </Routes>
         </main>
       </div>

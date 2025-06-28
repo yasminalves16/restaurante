@@ -49,7 +49,6 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_phone: '',
-    customer_email: '',
     delivery_address: '',
     notes: '',
   });
@@ -100,38 +99,37 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
   };
 
   return (
-    <div className='min-h-screen bg-gray-50 py-8'>
+    <div className='min-h-screen bg-gray-50 py-4 md:py-8'>
       <div className='max-w-2xl mx-auto px-4'>
-        <div className='mb-6'>
+        <div className='mb-4 md:mb-6'>
           <Button variant='ghost' onClick={onBack} className='mb-4'>
             <ArrowLeft className='w-4 h-4 mr-2' />
-            Voltar ao Cardápio
           </Button>
-          <h1 className='text-2xl font-bold text-gray-900'>Finalizar Pedido</h1>
-          <p className='text-gray-600'>{orderType === 'delivery' ? 'Delivery' : 'Retirar no Local'}</p>
+          <h1 className='text-xl md:text-2xl font-bold text-gray-900'>Finalizar Pedido</h1>
+          <p className='text-sm md:text-base text-gray-600'>{orderType === 'delivery' ? 'Delivery' : 'Retirar no Local'}</p>
         </div>
 
-        <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8'>
           {/* Resumo do Pedido */}
           <Card>
             <CardHeader>
-              <CardTitle>Resumo do Pedido</CardTitle>
+              <CardTitle className='text-lg md:text-xl'>Resumo do Pedido</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className='space-y-4'>
+              <div className='space-y-3 md:space-y-4'>
                 {cart.map((item) => (
                   <div key={item.id} className='flex justify-between items-center'>
                     <div>
-                      <h4 className='font-medium'>{item.name}</h4>
-                      <p className='text-sm text-gray-600'>
+                      <h4 className='font-medium text-sm md:text-base'>{item.name}</h4>
+                      <p className='text-xs md:text-sm text-gray-600'>
                         {item.quantity}x R$ {item.price.toFixed(2)}
                       </p>
                     </div>
-                    <span className='font-medium'>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                    <span className='font-medium text-sm md:text-base'>R$ {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
-                <div className='border-t pt-4'>
-                  <div className='flex justify-between items-center text-lg font-bold'>
+                <div className='border-t pt-3 md:pt-4'>
+                  <div className='flex justify-between items-center text-base md:text-lg font-bold'>
                     <span>Total:</span>
                     <span className='text-green-600'>R$ {total.toFixed(2)}</span>
                   </div>
@@ -143,65 +141,67 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
           {/* Formulário */}
           <Card>
             <CardHeader>
-              <CardTitle>Dados do Pedido</CardTitle>
+              <CardTitle className='text-lg md:text-xl'>Dados do Pedido</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className='space-y-4'>
+              <form onSubmit={handleSubmit} className='space-y-3 md:space-y-4'>
                 <div>
-                  <Label htmlFor='customer_name'>Nome Completo *</Label>
+                  <Label htmlFor='customer_name' className='text-sm md:text-base'>
+                    Nome Completo *
+                  </Label>
                   <Input
                     id='customer_name'
                     value={formData.customer_name}
                     onChange={(e) => handleChange('customer_name', e.target.value)}
                     required
+                    className='text-sm md:text-base'
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor='customer_phone'>Telefone *</Label>
+                  <Label htmlFor='customer_phone' className='text-sm md:text-base'>
+                    Telefone *
+                  </Label>
                   <Input
                     id='customer_phone'
                     type='tel'
                     value={formData.customer_phone}
                     onChange={(e) => handleChange('customer_phone', e.target.value)}
                     required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor='customer_email'>E-mail</Label>
-                  <Input
-                    id='customer_email'
-                    type='email'
-                    value={formData.customer_email}
-                    onChange={(e) => handleChange('customer_email', e.target.value)}
+                    className='text-sm md:text-base'
                   />
                 </div>
 
                 {orderType === 'delivery' && (
                   <div>
-                    <Label htmlFor='delivery_address'>Endereço de Entrega *</Label>
+                    <Label htmlFor='delivery_address' className='text-sm md:text-base'>
+                      Endereço de Entrega *
+                    </Label>
                     <Textarea
                       id='delivery_address'
                       value={formData.delivery_address}
                       onChange={(e) => handleChange('delivery_address', e.target.value)}
                       required
                       placeholder='Rua, número, bairro, cidade...'
+                      className='text-sm md:text-base'
                     />
                   </div>
                 )}
 
                 <div>
-                  <Label htmlFor='notes'>Observações</Label>
+                  <Label htmlFor='notes' className='text-sm md:text-base'>
+                    Observações
+                  </Label>
                   <Textarea
                     id='notes'
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
                     placeholder='Alguma observação especial sobre o pedido...'
+                    className='text-sm md:text-base'
                   />
                 </div>
 
-                <Button type='submit' className='w-full' disabled={loading}>
+                <Button type='submit' className='w-full text-sm md:text-base' disabled={loading}>
                   {loading ? 'Enviando...' : 'Confirmar Pedido'}
                 </Button>
               </form>
@@ -214,20 +214,27 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
 }
 
 // Componente de confirmação do pedido
-function OrderConfirmation({ order, onNewOrder }) {
+function OrderConfirmation({ order, onNewOrder, onBack }) {
   return (
     <div className='min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4'>
       <div className='max-w-md w-full text-center'>
+        {/* Botão Voltar */}
+        <div className='flex justify-start mb-4'>
+          <Button variant='ghost' onClick={onBack} className='text-gray-600 hover:text-gray-900'>
+            <ArrowLeft className='w-4 h-4' />
+          </Button>
+        </div>
+
         <div className='bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6'>
           <Check className='w-8 h-8 text-green-600' />
         </div>
 
-        <h1 className='text-2xl font-bold text-gray-900 mb-2'>Pedido Confirmado!</h1>
-        <p className='text-gray-600 mb-6'>Seu pedido #{order.id} foi recebido com sucesso.</p>
+        <h1 className='text-xl md:text-2xl font-bold text-gray-900 mb-2'>Pedido Confirmado!</h1>
+        <p className='text-sm md:text-base text-gray-600 mb-6'>Seu pedido #{order.id} foi recebido com sucesso.</p>
 
         <Card className='mb-6'>
           <CardContent className='p-4'>
-            <div className='space-y-2 text-sm'>
+            <div className='space-y-2 text-xs md:text-sm'>
               <div className='flex justify-between'>
                 <span>Cliente:</span>
                 <span className='font-medium'>{order.customer_name}</span>
@@ -260,15 +267,18 @@ function OrderConfirmation({ order, onNewOrder }) {
 function MenuItem({ item, onAddToCart }) {
   return (
     <Card className='h-full'>
-      <CardContent className='p-4'>
-        {item.image_url && <img src={item.image_url} alt={item.name} className='w-full h-32 object-cover rounded-md mb-3' />}
-        <h3 className='font-semibold text-lg mb-2'>{item.name}</h3>
-        <p className='text-gray-600 text-sm mb-3'>{item.description}</p>
+      <CardContent className='p-3 md:p-4'>
+        {item.image_url && (
+          <img src={item.image_url} alt={item.name} className='w-full h-24 md:h-32 object-cover rounded-md mb-2 md:mb-3' />
+        )}
+        <h3 className='font-semibold text-base md:text-lg mb-1 md:mb-2'>{item.name}</h3>
+        <p className='text-gray-600 text-xs md:text-sm mb-2 md:mb-3'>{item.description}</p>
         <div className='flex items-center justify-between'>
-          <span className='text-xl font-bold text-green-600'>R$ {item.price.toFixed(2)}</span>
-          <Button onClick={() => onAddToCart(item)} size='sm'>
-            <Plus className='w-4 h-4 mr-1' />
-            Adicionar
+          <span className='text-lg md:text-xl font-bold text-green-600'>R$ {item.price.toFixed(2)}</span>
+          <Button onClick={() => onAddToCart(item)} size='sm' className='text-xs md:text-sm'>
+            <Plus className='w-3 h-3 md:w-4 md:h-4 mr-1' />
+            <span className='hidden sm:inline'>Adicionar</span>
+            <span className='sm:hidden'>+</span>
           </Button>
         </div>
       </CardContent>
@@ -340,7 +350,7 @@ function CartSidebar({ cart, isOpen, onClose, onUpdateQuantity, onRemoveItem, on
 }
 
 // Componente principal do cardápio
-function MenuPage({ orderType, onCheckout }) {
+function MenuPage({ orderType, onCheckout, onBack }) {
   const [menu, setMenu] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -430,15 +440,20 @@ function MenuPage({ orderType, onCheckout }) {
       <header className='bg-white shadow-sm sticky top-0 z-40'>
         <div className='max-w-7xl mx-auto px-4 py-4'>
           <div className='flex items-center justify-between'>
-            <div>
-              <h1 className='text-2xl font-bold text-gray-900'>Cardápio</h1>
-              <p className='text-sm text-gray-600'>{orderType === 'delivery' ? 'Delivery' : 'Retirar no Local'}</p>
+            <div className='flex items-center space-x-3'>
+              <Button variant='ghost' onClick={onBack} className='p-2'>
+                <ArrowLeft className='w-4 h-4' />
+              </Button>
+              <div>
+                <h1 className='text-xl md:text-2xl font-bold text-gray-900'>Cardápio</h1>
+                <p className='text-xs md:text-sm text-gray-600'>{orderType === 'delivery' ? 'Delivery' : 'Retirar no Local'}</p>
+              </div>
             </div>
-            <Button onClick={() => setCartOpen(true)} className='relative'>
-              <ShoppingCart className='w-5 h-5 mr-2' />
-              Carrinho
+            <Button onClick={() => setCartOpen(true)} className='relative text-sm md:text-base'>
+              <ShoppingCart className='w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2' />
+              <span className='hidden sm:inline'>Carrinho</span>
               {cart.length > 0 && (
-                <Badge className='absolute -top-2 -right-2 bg-red-500'>{cart.reduce((sum, item) => sum + item.quantity, 0)}</Badge>
+                <Badge className='absolute -top-2 -right-2 bg-red-500 text-xs'>{cart.reduce((sum, item) => sum + item.quantity, 0)}</Badge>
               )}
             </Button>
           </div>
@@ -447,8 +462,13 @@ function MenuPage({ orderType, onCheckout }) {
 
       {/* Filtros de categoria */}
       <div className='max-w-7xl mx-auto px-4 py-4'>
-        <div className='flex space-x-2 overflow-x-auto'>
-          <Button variant={selectedCategory === '' ? 'default' : 'outline'} onClick={() => setSelectedCategory('')} size='sm'>
+        <div className='flex space-x-2 overflow-x-auto pb-2'>
+          <Button
+            variant={selectedCategory === '' ? 'default' : 'outline'}
+            onClick={() => setSelectedCategory('')}
+            size='sm'
+            className='whitespace-nowrap'
+          >
             Todos
           </Button>
           {categories.map((category) => (
@@ -457,6 +477,7 @@ function MenuPage({ orderType, onCheckout }) {
               variant={selectedCategory === category ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(category)}
               size='sm'
+              className='whitespace-nowrap'
             >
               {category}
             </Button>
@@ -471,7 +492,7 @@ function MenuPage({ orderType, onCheckout }) {
             <p className='text-gray-500'>Nenhum item encontrado</p>
           </div>
         ) : (
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6'>
             {menu.map((item) => (
               <MenuItem key={item.id} item={item} onAddToCart={addToCart} />
             ))}
@@ -519,6 +540,12 @@ function App() {
     setCurrentView('menu');
   };
 
+  const handleBackFromMenu = () => {
+    setOrderType(null);
+    setCurrentView('menu');
+    setCart([]);
+  };
+
   if (!orderType) {
     return <OrderTypeSelection onSelectType={setOrderType} />;
   }
@@ -528,13 +555,13 @@ function App() {
   }
 
   if (currentView === 'confirmation') {
-    return <OrderConfirmation order={confirmedOrder} onNewOrder={handleNewOrder} />;
+    return <OrderConfirmation order={confirmedOrder} onNewOrder={handleNewOrder} onBack={handleBackFromMenu} />;
   }
 
   return (
     <Router>
       <div className='App'>
-        <MenuPage orderType={orderType} onCheckout={handleCheckout} />
+        <MenuPage orderType={orderType} onCheckout={handleCheckout} onBack={handleBackFromMenu} />
       </div>
     </Router>
   );

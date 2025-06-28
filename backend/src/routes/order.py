@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.models.user import db
+from src.models.user import db, User
 from src.models.order import Order, OrderItem
 from src.models.menu import MenuItem
 
@@ -10,16 +10,16 @@ def get_orders():
     """Obter todos os pedidos com filtros opcionais"""
     status = request.args.get('status')
     order_type = request.args.get('type')
-    
+
     query = Order.query
-    
+
     if status:
         query = query.filter(Order.status == status)
     if order_type:
         query = query.filter(Order.order_type == order_type)
-    
+
     orders = query.order_by(Order.created_at.desc()).all()
-    
+
     return jsonify({
         'success': True,
         'orders': [order.to_dict() for order in orders]
@@ -29,7 +29,7 @@ def get_orders():
 def get_order(order_id):
     """Obter detalhes de um pedido específico"""
     order = Order.query.get_or_404(order_id)
-    
+
     return jsonify({
         'success': True,
         'order': order.to_dict()
@@ -39,43 +39,43 @@ def get_order(order_id):
 def create_order():
     """Criar novo pedido"""
     data = request.get_json()
-    
+
     if not data or not data.get('customer_name') or not data.get('items') or not data.get('order_type'):
         return jsonify({
-            'success': False, 
+            'success': False,
             'message': 'Nome do cliente, itens e tipo de pedido são obrigatórios'
         }), 400
-    
+
     try:
         # Calcular total do pedido
         total_amount = 0
         order_items_data = []
-        
+
         for item_data in data['items']:
             menu_item = MenuItem.query.get(item_data['menu_item_id'])
             if not menu_item or not menu_item.is_active:
                 return jsonify({
-                    'success': False, 
+                    'success': False,
                     'message': f'Item do cardápio {item_data["menu_item_id"]} não encontrado ou inativo'
                 }), 400
-            
+
             # Verificar disponibilidade para o tipo de pedido
             if data['order_type'] == 'delivery' and not menu_item.available_for_delivery:
                 return jsonify({
-                    'success': False, 
+                    'success': False,
                     'message': f'Item "{menu_item.name}" não disponível para delivery'
                 }), 400
             elif data['order_type'] == 'local' and not menu_item.available_for_local:
                 return jsonify({
-                    'success': False, 
+                    'success': False,
                     'message': f'Item "{menu_item.name}" não disponível para consumo local'
                 }), 400
-            
+
             quantity = int(item_data['quantity'])
             unit_price = menu_item.price
             subtotal = quantity * unit_price
             total_amount += subtotal
-            
+
             order_items_data.append({
                 'menu_item_id': menu_item.id,
                 'quantity': quantity,
@@ -83,21 +83,57 @@ def create_order():
                 'subtotal': subtotal,
                 'notes': item_data.get('notes', '')
             })
-        
+
+        # Buscar ou criar usuário
+        user = None
+        customer_phone = data.get('customer_phone', '').strip()
+        customer_email = data.get('customer_email', '').strip()
+
+        if customer_phone:
+            # Tentar encontrar por telefone
+            user = User.query.filter_by(customer_phone=customer_phone).first()
+
+        if not user and customer_email:
+            # Tentar encontrar por email
+            user = User.query.filter_by(customer_email=customer_email).first()
+
+        if user:
+            # Atualizar informações do usuário existente
+            user.customer_name = data['customer_name']
+            if customer_phone:
+                user.customer_phone = customer_phone
+            if customer_email:
+                user.customer_email = customer_email
+            if data.get('delivery_address'):
+                user.delivery_address = data['delivery_address']
+        else:
+            # Criar novo usuário
+            user = User(
+                customer_name=data['customer_name'],
+                customer_phone=customer_phone,
+                customer_email=customer_email,
+                delivery_address=data.get('delivery_address', ''),
+                total_orders=0,
+                total_spent=0.0
+            )
+            db.session.add(user)
+            db.session.flush()  # Para obter o ID do usuário
+
         # Criar o pedido
         order = Order(
+            user_id=user.id,
             customer_name=data['customer_name'],
-            customer_phone=data.get('customer_phone', ''),
-            customer_email=data.get('customer_email', ''),
+            customer_phone=customer_phone,
+            customer_email=customer_email,
             order_type=data['order_type'],
             total_amount=total_amount,
             delivery_address=data.get('delivery_address', ''),
             notes=data.get('notes', '')
         )
-        
+
         db.session.add(order)
         db.session.flush()  # Para obter o ID do pedido
-        
+
         # Criar os itens do pedido
         for item_data in order_items_data:
             order_item = OrderItem(
@@ -109,15 +145,18 @@ def create_order():
                 notes=item_data['notes']
             )
             db.session.add(order_item)
-        
+
+        # Atualizar estatísticas do usuário
+        user.update_stats()
+
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Pedido criado com sucesso',
             'order': order.to_dict()
         }), 201
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Erro ao criar pedido: {str(e)}'}), 500
@@ -127,27 +166,27 @@ def update_order_status(order_id):
     """Atualizar status do pedido"""
     order = Order.query.get_or_404(order_id)
     data = request.get_json()
-    
+
     if not data or 'status' not in data:
         return jsonify({'success': False, 'message': 'Status é obrigatório'}), 400
-    
+
     valid_statuses = ['pendente', 'preparando', 'pronto', 'entregue', 'cancelado']
     if data['status'] not in valid_statuses:
         return jsonify({
-            'success': False, 
+            'success': False,
             'message': f'Status inválido. Valores válidos: {", ".join(valid_statuses)}'
         }), 400
-    
+
     try:
         order.status = data['status']
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Status atualizado com sucesso',
             'order': order.to_dict()
         })
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Erro ao atualizar status: {str(e)}'}), 500
@@ -157,10 +196,10 @@ def update_order(order_id):
     """Atualizar informações do pedido"""
     order = Order.query.get_or_404(order_id)
     data = request.get_json()
-    
+
     if not data:
         return jsonify({'success': False, 'message': 'Dados não fornecidos'}), 400
-    
+
     try:
         if 'customer_name' in data:
             order.customer_name = data['customer_name']
@@ -172,15 +211,15 @@ def update_order(order_id):
             order.delivery_address = data['delivery_address']
         if 'notes' in data:
             order.notes = data['notes']
-        
+
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Pedido atualizado com sucesso',
             'order': order.to_dict()
         })
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Erro ao atualizar pedido: {str(e)}'}), 500
@@ -193,7 +232,7 @@ def get_order_stats():
         pending_orders = Order.query.filter(Order.status == 'pendente').count()
         preparing_orders = Order.query.filter(Order.status == 'preparando').count()
         ready_orders = Order.query.filter(Order.status == 'pronto').count()
-        
+
         return jsonify({
             'success': True,
             'stats': {
@@ -203,7 +242,7 @@ def get_order_stats():
                 'ready_orders': ready_orders
             }
         })
-        
+
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro ao obter estatísticas: {str(e)}'}), 500
 
