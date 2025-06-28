@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Check, Minus, Plus, ShoppingCart, Store, Truck } from 'lucide-react';
+import { ArrowLeft, Check, History, LogOut, Minus, Phone, Plus, ShoppingCart, Store, Truck, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import './App.css';
@@ -56,6 +56,28 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  // Função para aplicar máscara no telefone
+  const applyPhoneMask = (value) => {
+    // Remove tudo que não é dígito
+    const numbers = value.replace(/\D/g, '');
+
+    // Aplica a máscara (DDD) 9XXXX-XXXX
+    if (numbers.length <= 2) {
+      return `(${numbers}`;
+    } else if (numbers.length <= 6) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    } else if (numbers.length <= 10) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    } else {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+    }
+  };
+
+  // Função para remover máscara do telefone
+  const removePhoneMask = (value) => {
+    return value.replace(/\D/g, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -63,6 +85,7 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
     try {
       const orderData = {
         ...formData,
+        customer_phone: removePhoneMask(formData.customer_phone), // Remove máscara antes de enviar
         order_type: orderType,
         items: cart.map((item) => ({
           menu_item_id: item.id,
@@ -95,7 +118,13 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
   };
 
   const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (field === 'customer_phone') {
+      // Aplica máscara para telefone
+      const maskedValue = applyPhoneMask(value);
+      setFormData((prev) => ({ ...prev, [field]: maskedValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   return (
@@ -146,19 +175,6 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
             <CardContent>
               <form onSubmit={handleSubmit} className='space-y-3 md:space-y-4'>
                 <div>
-                  <Label htmlFor='customer_name' className='text-sm md:text-base'>
-                    Nome Completo *
-                  </Label>
-                  <Input
-                    id='customer_name'
-                    value={formData.customer_name}
-                    onChange={(e) => handleChange('customer_name', e.target.value)}
-                    required
-                    className='text-sm md:text-base'
-                  />
-                </div>
-
-                <div>
                   <Label htmlFor='customer_phone' className='text-sm md:text-base'>
                     Telefone *
                   </Label>
@@ -167,9 +183,25 @@ function CheckoutForm({ cart, orderType, onBack, onSubmit }) {
                     type='tel'
                     value={formData.customer_phone}
                     onChange={(e) => handleChange('customer_phone', e.target.value)}
+                    placeholder='(11) 91234-5678'
                     required
                     className='text-sm md:text-base'
                   />
+                  <p className='text-xs text-gray-500 mt-1'>Formato: (DDD) 9XXXX-XXXX</p>
+                </div>
+
+                <div>
+                  <Label htmlFor='customer_name' className='text-sm md:text-base'>
+                    Nome (opcional)
+                  </Label>
+                  <Input
+                    id='customer_name'
+                    value={formData.customer_name}
+                    onChange={(e) => handleChange('customer_name', e.target.value)}
+                    placeholder='Seu nome (opcional)'
+                    className='text-sm md:text-base'
+                  />
+                  <p className='text-xs text-gray-500 mt-1'>O nome é usado apenas para identificação. O histórico é baseado no telefone.</p>
                 </div>
 
                 {orderType === 'delivery' && (
@@ -513,11 +545,325 @@ function MenuPage({ orderType, onCheckout, onBack }) {
   );
 }
 
+// Componente de autenticação por telefone
+function PhoneAuth({ onAuthenticated }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Função para aplicar máscara no telefone
+  const applyPhoneMask = (value) => {
+    // Remove tudo que não é dígito
+    const numbers = value.replace(/\D/g, '');
+
+    // Aplica a máscara (DDD) 9XXXX-XXXX
+    if (numbers.length <= 2) {
+      return `(${numbers}`;
+    } else if (numbers.length <= 6) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    } else if (numbers.length <= 10) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    } else {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+    }
+  };
+
+  // Função para remover máscara do telefone
+  const removePhoneMask = (value) => {
+    return value.replace(/\D/g, '');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/phone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: removePhoneMask(phone), // Remove máscara antes de enviar
+          name: name.trim() || undefined, // Envia apenas se não estiver vazio
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Salvar no localStorage para persistir a sessão
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('orders', JSON.stringify(data.orders));
+        localStorage.setItem('currentOrder', JSON.stringify(data.current_order));
+        onAuthenticated(data.user, data.orders, data.current_order);
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Erro ao conectar com o servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    const maskedValue = applyPhoneMask(e.target.value);
+    setPhone(maskedValue);
+  };
+
+  return (
+    <div className='min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4'>
+      <Card className='w-full max-w-md'>
+        <CardHeader className='text-center'>
+          <CardTitle className='flex items-center justify-center gap-2'>
+            <Phone className='w-6 h-6' />
+            Acessar Meus Pedidos
+          </CardTitle>
+          <p className='text-gray-600'>Digite seu telefone para ver seu histórico de pedidos</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className='space-y-4'>
+            <div>
+              <Label htmlFor='phone'>Telefone *</Label>
+              <Input id='phone' type='tel' value={phone} onChange={handlePhoneChange} placeholder='(11) 91234-5678' required />
+              <p className='text-xs text-gray-500 mt-1'>Formato: (DDD) 9XXXX-XXXX</p>
+            </div>
+            <div>
+              <Label htmlFor='name'>Nome (opcional)</Label>
+              <Input id='name' type='text' value={name} onChange={(e) => setName(e.target.value)} placeholder='Seu nome (opcional)' />
+              <p className='text-xs text-gray-500 mt-1'>O nome é usado apenas para identificação. O histórico é baseado no telefone.</p>
+            </div>
+            {error && <div className='text-red-600 text-sm text-center'>{error}</div>}
+            <Button type='submit' className='w-full' disabled={loading}>
+              {loading ? 'Carregando...' : 'Acessar Pedidos'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Componente de histórico de pedidos
+function OrderHistory({ user, orders, currentOrder, onLogout, onNewOrder }) {
+  const getStatusBadgeVariant = (status) => {
+    switch (status) {
+      case 'pendente':
+        return 'secondary';
+      case 'preparando':
+        return 'default';
+      case 'pronto':
+        return 'default';
+      case 'entregue':
+        return 'default';
+      case 'cancelado':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pendente':
+        return 'Pendente';
+      case 'preparando':
+        return 'Preparando';
+      case 'pronto':
+        return 'Pronto';
+      case 'entregue':
+        return 'Entregue';
+      case 'cancelado':
+        return 'Cancelado';
+      default:
+        return status;
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('orders');
+    localStorage.removeItem('currentOrder');
+    onLogout();
+  };
+
+  return (
+    <div className='min-h-screen bg-gray-50'>
+      <div className='max-w-4xl mx-auto p-4 md:p-6'>
+        <div className='flex justify-between items-center mb-6'>
+          <h1 className='text-2xl font-bold text-gray-900'>Meus Pedidos</h1>
+          <div className='flex gap-2'>
+            <Button onClick={onNewOrder} variant='outline'>
+              Novo Pedido
+            </Button>
+            <Button onClick={handleLogout} variant='outline'>
+              <LogOut className='w-4 h-4 mr-2' />
+              Sair
+            </Button>
+          </div>
+        </div>
+
+        <div className='grid gap-6'>
+          {/* Informações do usuário */}
+          <Card>
+            <CardHeader>
+              <CardTitle className='flex items-center gap-2'>
+                <User className='w-5 h-5' />
+                Informações do Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div>
+                  <Label className='text-sm font-medium text-gray-600'>Nome</Label>
+                  <p className='text-lg font-semibold'>{user.customer_name}</p>
+                </div>
+                <div>
+                  <Label className='text-sm font-medium text-gray-600'>Telefone</Label>
+                  <p className='text-lg font-semibold'>{user.customer_phone}</p>
+                </div>
+                {user.customer_email && (
+                  <div>
+                    <Label className='text-sm font-medium text-gray-600'>Email</Label>
+                    <p className='text-lg font-semibold'>{user.customer_email}</p>
+                  </div>
+                )}
+                {user.delivery_address && (
+                  <div>
+                    <Label className='text-sm font-medium text-gray-600'>Endereço</Label>
+                    <p className='text-lg font-semibold'>{user.delivery_address}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pedido atual */}
+          {currentOrder && (
+            <Card className='border-blue-200 bg-blue-50'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2 text-blue-800'>
+                  <Clock className='w-5 h-5' />
+                  Pedido Atual
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className='space-y-4'>
+                  <div className='flex justify-between items-center'>
+                    <span className='font-medium'>Pedido #{currentOrder.id}</span>
+                    <Badge variant={getStatusBadgeVariant(currentOrder.status)}>{getStatusText(currentOrder.status)}</Badge>
+                  </div>
+                  <div className='text-sm text-gray-600'>
+                    <p>Data: {new Date(currentOrder.created_at).toLocaleString('pt-BR')}</p>
+                    <p>Total: R$ {currentOrder.total_amount.toFixed(2)}</p>
+                    <p>Tipo: {currentOrder.order_type === 'delivery' ? 'Delivery' : 'Local'}</p>
+                  </div>
+                  {currentOrder.items && currentOrder.items.length > 0 && (
+                    <div>
+                      <Label className='text-sm font-medium'>Itens:</Label>
+                      <ul className='mt-2 space-y-1'>
+                        {currentOrder.items.map((item) => (
+                          <li key={item.id} className='text-sm'>
+                            {item.quantity}x {item.menu_item?.name} - R$ {item.subtotal.toFixed(2)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Histórico de pedidos */}
+          <Card>
+            <CardHeader>
+              <CardTitle className='flex items-center gap-2'>
+                <History className='w-5 h-5' />
+                Histórico de Pedidos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {orders.length === 0 ? (
+                <p className='text-gray-500 text-center py-8'>Nenhum pedido encontrado</p>
+              ) : (
+                <div className='space-y-4'>
+                  {orders.map((order) => (
+                    <div key={order.id} className='border rounded-lg p-4'>
+                      <div className='flex justify-between items-start mb-3'>
+                        <div>
+                          <h3 className='font-semibold'>Pedido #{order.id}</h3>
+                          <p className='text-sm text-gray-600'>{new Date(order.created_at).toLocaleString('pt-BR')}</p>
+                          {order.customer_name && (
+                            <p className='text-sm text-blue-600 font-medium'>Nome no pedido: {order.customer_name}</p>
+                          )}
+                        </div>
+                        <Badge variant={getStatusBadgeVariant(order.status)}>{getStatusText(order.status)}</Badge>
+                      </div>
+                      <div className='grid grid-cols-1 md:grid-cols-3 gap-4 text-sm'>
+                        <div>
+                          <span className='font-medium'>Total:</span> R$ {order.total_amount.toFixed(2)}
+                        </div>
+                        <div>
+                          <span className='font-medium'>Tipo:</span> {order.order_type === 'delivery' ? 'Delivery' : 'Local'}
+                        </div>
+                        {order.delivery_address && (
+                          <div>
+                            <span className='font-medium'>Endereço:</span> {order.delivery_address}
+                          </div>
+                        )}
+                      </div>
+                      {order.items && order.items.length > 0 && (
+                        <div className='mt-3'>
+                          <Label className='text-sm font-medium'>Itens:</Label>
+                          <ul className='mt-1 space-y-1'>
+                            {order.items.map((item) => (
+                              <li key={item.id} className='text-sm text-gray-600'>
+                                {item.quantity}x {item.menu_item?.name} - R$ {item.subtotal.toFixed(2)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [currentView, setCurrentView] = useState('order-type'); // 'order-type', 'menu', 'checkout', 'confirmation', 'auth', 'history'
   const [orderType, setOrderType] = useState(null);
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'checkout', 'confirmation'
   const [cart, setCart] = useState([]);
-  const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [order, setOrder] = useState(null);
+
+  // Estados para autenticação
+  const [user, setUser] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [currentOrder, setCurrentOrder] = useState(null);
+
+  // Carregar dados salvos ao iniciar
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    const savedOrders = localStorage.getItem('orders');
+    const savedCurrentOrder = localStorage.getItem('currentOrder');
+
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+      setOrders(JSON.parse(savedOrders || '[]'));
+      setCurrentOrder(JSON.parse(savedCurrentOrder || 'null'));
+      setCurrentView('history');
+    }
+  }, []);
 
   const handleCheckout = (cartItems) => {
     setCart(cartItems);
@@ -525,15 +871,14 @@ function App() {
   };
 
   const handleOrderSubmit = (order) => {
-    setConfirmedOrder(order);
+    setOrder(order);
     setCurrentView('confirmation');
   };
 
   const handleNewOrder = () => {
-    setOrderType(null);
-    setCurrentView('menu');
+    setCurrentView('order-type');
     setCart([]);
-    setConfirmedOrder(null);
+    setOrder(null);
   };
 
   const handleBackToMenu = () => {
@@ -541,27 +886,69 @@ function App() {
   };
 
   const handleBackFromMenu = () => {
-    setOrderType(null);
-    setCurrentView('menu');
-    setCart([]);
+    setCurrentView('order-type');
   };
 
-  if (!orderType) {
-    return <OrderTypeSelection onSelectType={setOrderType} />;
+  // Handlers para autenticação
+  const handleAuthenticated = (userData, userOrders, userCurrentOrder) => {
+    setUser(userData);
+    setOrders(userOrders);
+    setCurrentOrder(userCurrentOrder);
+    setCurrentView('history');
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setOrders([]);
+    setCurrentOrder(null);
+    setCurrentView('order-type');
+  };
+
+  const handleShowAuth = () => {
+    setCurrentView('auth');
+  };
+
+  const handleShowHistory = () => {
+    setCurrentView('history');
+  };
+
+  // Renderizar componente baseado na view atual
+  if (currentView === 'auth') {
+    return <PhoneAuth onAuthenticated={handleAuthenticated} />;
   }
 
-  if (currentView === 'checkout') {
-    return <CheckoutForm cart={cart} orderType={orderType} onBack={handleBackToMenu} onSubmit={handleOrderSubmit} />;
-  }
-
-  if (currentView === 'confirmation') {
-    return <OrderConfirmation order={confirmedOrder} onNewOrder={handleNewOrder} onBack={handleBackFromMenu} />;
+  if (currentView === 'history') {
+    return <OrderHistory user={user} orders={orders} currentOrder={currentOrder} onLogout={handleLogout} onNewOrder={handleNewOrder} />;
   }
 
   return (
     <Router>
       <div className='App'>
-        <MenuPage orderType={orderType} onCheckout={handleCheckout} onBack={handleBackFromMenu} />
+        {currentView === 'order-type' && (
+          <div>
+            <OrderTypeSelection
+              onSelectType={(type) => {
+                setOrderType(type);
+                setCurrentView('menu');
+              }}
+            />
+            {/* Botão para acessar histórico */}
+            <div className='fixed bottom-4 right-4'>
+              <Button onClick={handleShowAuth} variant='outline' size='sm'>
+                <History className='w-4 h-4 mr-2' />
+                Meus Pedidos
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {currentView === 'menu' && <MenuPage orderType={orderType} onCheckout={handleCheckout} onBack={handleBackFromMenu} />}
+
+        {currentView === 'checkout' && (
+          <CheckoutForm cart={cart} orderType={orderType} onBack={handleBackToMenu} onSubmit={handleOrderSubmit} />
+        )}
+
+        {currentView === 'confirmation' && <OrderConfirmation order={order} onNewOrder={handleNewOrder} onBack={handleBackToMenu} />}
       </div>
     </Router>
   );
