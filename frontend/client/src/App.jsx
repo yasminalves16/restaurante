@@ -746,7 +746,7 @@ function OrderHistory({ user, orders, currentOrder, onLogout, onNewOrder }) {
             <Card className='border-blue-200 bg-blue-50'>
               <CardHeader>
                 <CardTitle className='flex items-center gap-2 text-blue-800'>
-                  <Clock className='w-5 h-5' />
+                  <History className='w-5 h-5' />
                   Pedido Atual
                 </CardTitle>
               </CardHeader>
