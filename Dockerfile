@@ -27,5 +27,5 @@ RUN mkdir -p src/database
 # Expor porta
 EXPOSE 5000
 
-# Comando para executar a aplicação
-CMD ["python", "migrate_railway.py"]
+# Comando para rodar o servidor Flask com Gunicorn
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "src.wsgi:app"]
