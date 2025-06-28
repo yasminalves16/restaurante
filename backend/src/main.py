@@ -138,9 +138,18 @@ def serve_restaurant(path='index.html'):
     else:
         return send_from_directory(restaurant_folder, path)
 
+@app.route('/health')
+def health_check():
+    return {'status': 'healthy', 'message': 'API is running'}
+
+# Rota para servir arquivos estáticos (deve vir depois das rotas da API)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
+    # Não servir arquivos estáticos para rotas da API
+    if path.startswith('api/'):
+        return "API endpoint not found", 404
+
     static_folder_path = app.static_folder
     if static_folder_path is None:
             return "Static folder not configured", 404
@@ -153,10 +162,6 @@ def serve(path):
             return send_from_directory(static_folder_path, 'index.html')
         else:
             return "index.html not found", 404
-
-@app.route('/health')
-def health_check():
-    return {'status': 'healthy', 'message': 'API is running'}
 
 if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV') == 'development'
