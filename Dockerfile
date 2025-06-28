@@ -27,10 +27,6 @@ COPY backend/ .
 # Criar diretório para banco de dados
 RUN mkdir -p src/database
 
-# Copiar builds dos frontends
-COPY frontend/client/dist/ src/static/client/
-COPY frontend/restaurant/dist/ src/static/restaurant/
-
 # Expor porta
 EXPOSE 5000
 
