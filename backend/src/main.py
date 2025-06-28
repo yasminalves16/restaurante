@@ -19,8 +19,10 @@ CORS(app, origins=[
     "http://localhost:5173",
     "http://localhost:5174",
     "https://cliente-casadonorte-f44g6ad8w-yasmin-alves-projects-95c82c0c.vercel.app",
+    "https://cliente-casadonorte.vercel.app", 
     "https://restaurante-casadonorte-c4o3ymzy7.vercel.app",
-    "https://seu-dominio.com",  # Substitua pelo seu domínio
+    "https://restaurante-casadonorte.vercel.app",
+    "https://seu-dominio.com",
     "https://www.seu-dominio.com"
 ])
 
