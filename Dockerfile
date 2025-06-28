@@ -21,6 +21,8 @@ COPY backend/requirements-prod.txt requirements.txt
 # Instalar dependências Python
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN python backend/migrate_railway.py
+
 # Copiar código do backend
 COPY backend/ .
 
