@@ -19,7 +19,7 @@ CORS(app, origins=[
     "http://localhost:5173",
     "http://localhost:5174",
     "https://cliente-casadonorte-f44g6ad8w-yasmin-alves-projects-95c82c0c.vercel.app",
-    "https://cliente-casadonorte.vercel.app", 
+    "https://cliente-casadonorte.vercel.app",
     "https://restaurante-casadonorte-c4o3ymzy7.vercel.app",
     "https://restaurante-casadonorte.vercel.app",
     "https://seu-dominio.com",
@@ -59,6 +59,7 @@ with app.app_context():
                 'category': 'prato principal',
                 'available_for_delivery': True,
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400'
             },
             {
@@ -68,6 +69,7 @@ with app.app_context():
                 'category': 'prato principal',
                 'available_for_delivery': True,
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400'
             },
             {
@@ -77,6 +79,7 @@ with app.app_context():
                 'category': 'acompanhamento',
                 'available_for_delivery': True,
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400'
             },
             {
@@ -86,6 +89,7 @@ with app.app_context():
                 'category': 'bebida',
                 'available_for_delivery': True,
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=400'
             },
             {
@@ -95,6 +99,7 @@ with app.app_context():
                 'category': 'bebida',
                 'available_for_delivery': True,
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1622597489632-0c2f5e2c8038?w=400'
             },
             {
@@ -104,6 +109,7 @@ with app.app_context():
                 'category': 'sobremesa',
                 'available_for_delivery': False,  # Sorvete não disponível para delivery
                 'available_for_local': True,
+                'available_for_comanda': True,
                 'image_url': 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=400'
             }
         ]

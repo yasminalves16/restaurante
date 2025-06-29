@@ -7,13 +7,19 @@ class Order(db.Model):
     customer_name = db.Column(db.String(100), nullable=True)  # Nome opcional
     customer_phone = db.Column(db.String(20))
     customer_email = db.Column(db.String(120))
-    order_type = db.Column(db.String(20), nullable=False)  # "delivery" ou "local"
+    order_type = db.Column(db.String(20), nullable=False)  # "delivery", "local" ou "comanda"
     status = db.Column(db.String(20), default="pendente")  # "pendente", "preparando", "pronto", "entregue", "cancelado"
+    payment_status = db.Column(db.String(20), default="nao_pago")  # "pago" ou "nao_pago"
     total_amount = db.Column(db.Float, nullable=False)
     delivery_address = db.Column(db.Text)  # apenas para delivery
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Campos específicos para comandas
+    is_comanda = db.Column(db.Boolean, default=False)
+    mesa = db.Column(db.Integer)  # Número da mesa
+    status_comanda = db.Column(db.String(20), default='aberta')  # "aberta" ou "encerrada"
 
     # Relacionamento com itens do pedido
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
@@ -30,11 +36,15 @@ class Order(db.Model):
             'customer_email': self.customer_email,
             'order_type': self.order_type,
             'status': self.status,
+            'payment_status': self.payment_status,
             'total_amount': self.total_amount,
             'delivery_address': self.delivery_address,
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'is_comanda': self.is_comanda,
+            'mesa': self.mesa,
+            'status_comanda': self.status_comanda,
             'items': [item.to_dict() for item in self.items]
         }
 

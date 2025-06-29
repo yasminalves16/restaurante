@@ -10,6 +10,7 @@ def get_orders():
     """Obter todos os pedidos com filtros opcionais"""
     status = request.args.get('status')
     order_type = request.args.get('type')
+    payment_status = request.args.get('payment_status')
 
     query = Order.query
 
@@ -17,6 +18,8 @@ def get_orders():
         query = query.filter(Order.status == status)
     if order_type:
         query = query.filter(Order.order_type == order_type)
+    if payment_status:
+        query = query.filter(Order.payment_status == payment_status)
 
     orders = query.order_by(Order.created_at.desc()).all()
 
@@ -40,14 +43,32 @@ def create_order():
     """Criar novo pedido"""
     data = request.get_json()
 
-    if not data or not data.get('customer_phone') or not data.get('items') or not data.get('order_type'):
+    if not data or not data.get('order_type') or not data.get('items'):
         return jsonify({
             'success': False,
-            'message': 'Telefone, itens e tipo de pedido são obrigatórios'
+            'message': 'Tipo de pedido e itens são obrigatórios'
         }), 400
 
     try:
-        # Calcular total do pedido
+        is_comanda = data.get('is_comanda', False)
+        mesa = data.get('mesa')
+        # Forçar tipos corretos
+        if data.get('order_type') == 'comanda':
+            is_comanda = True
+            try:
+                mesa = int(mesa)
+            except (TypeError, ValueError):
+                mesa = None
+        print('DEBUG NOVO PEDIDO:', data, 'is_comanda:', is_comanda, 'mesa:', mesa)
+
+        if is_comanda and mesa:
+            customer_name = str(mesa)
+            customer_phone = f"mesa {mesa}"
+        else:
+            customer_name = data.get('customer_name')
+            customer_phone = data.get('customer_phone')
+
+        # Calcular total dos novos itens
         total_amount = 0
         order_items_data = []
 
@@ -70,6 +91,11 @@ def create_order():
                     'success': False,
                     'message': f'Item "{menu_item.name}" não disponível para consumo local'
                 }), 400
+            elif data['order_type'] == 'comanda' and not menu_item.available_for_comanda:
+                return jsonify({
+                    'success': False,
+                    'message': f'Item "{menu_item.name}" não disponível para comanda'
+                }), 400
 
             quantity = int(item_data['quantity'])
             unit_price = menu_item.price
@@ -86,59 +112,79 @@ def create_order():
 
         # Buscar ou criar usuário
         user = None
-        customer_phone = data.get('customer_phone', '').strip()
-        customer_email = data.get('customer_email', '').strip()
-
         if customer_phone:
-            # Usar o novo método para buscar ou criar usuário por telefone
-            user = User.find_or_create_by_phone(
-                phone=customer_phone,
-                name=data.get('customer_name'),  # Nome pode ser None
-                email=customer_email,
-                address=data.get('delivery_address', '')
-            )
-        else:
-            # Criar novo usuário sem telefone (caso raro)
-            user = User(
-                customer_name=data.get('customer_name'),
-                customer_phone=customer_phone,
-                customer_email=customer_email,
-                delivery_address=data.get('delivery_address', ''),
-                total_orders=0,
-                total_spent=0.0
-            )
-            db.session.add(user)
-            db.session.flush()  # Para obter o ID do usuário
+            user = User.find_by_phone(customer_phone)
+            if not user:
+                user = User(
+                    customer_phone=customer_phone,
+                    customer_name=customer_name,
+                    customer_email=data.get('customer_email'),
+                    delivery_address=data.get('delivery_address')
+                )
+                db.session.add(user)
+                db.session.flush()  # Para obter o ID do usuário
 
-        # Criar o pedido
+        # --- NOVA LÓGICA PARA COMANDA ---
+        if is_comanda and mesa:
+            # Buscar comanda aberta existente
+            order = Order.query.filter_by(mesa=mesa, is_comanda=True, status_comanda='aberta').first()
+            if order:
+                # Adicionar itens à comanda existente
+                for item_data in order_items_data:
+                    order_item = OrderItem(
+                        order_id=order.id,
+                        **item_data
+                    )
+                    db.session.add(order_item)
+                    order.total_amount += item_data['subtotal']
+                order.status_comanda = 'aberta'  # Garante que a comanda fique aberta
+                order.is_comanda = True
+                order.mesa = mesa
+                db.session.commit()
+                return jsonify({
+                    'success': True,
+                    'message': 'Itens adicionados à comanda existente',
+                    'order': order.to_dict()
+                }), 200
+        # --- FIM DA NOVA LÓGICA ---
+
+        # Criar pedido (caso não exista comanda aberta)
+        if is_comanda and mesa:
+            is_comanda = True
+            try:
+                mesa = int(mesa)
+            except (TypeError, ValueError):
+                mesa = None
         order = Order(
-            user_id=user.id,
-            customer_name=data.get('customer_name', ''),  # Nome pode ser vazio
+            user_id=user.id if user else None,
+            customer_name=customer_name,
             customer_phone=customer_phone,
-            customer_email=customer_email,
+            customer_email=data.get('customer_email'),
             order_type=data['order_type'],
+            is_comanda=is_comanda,
+            mesa=mesa,
+            status_comanda=data.get('status_comanda', 'aberta') if is_comanda else None,
+            payment_status=data.get('payment_status', 'nao_pago'),
             total_amount=total_amount,
-            delivery_address=data.get('delivery_address', ''),
-            notes=data.get('notes', '')
+            delivery_address=data.get('delivery_address'),
+            notes=data.get('notes')
         )
 
         db.session.add(order)
         db.session.flush()  # Para obter o ID do pedido
 
-        # Criar os itens do pedido
+        # Criar itens do pedido
         for item_data in order_items_data:
             order_item = OrderItem(
                 order_id=order.id,
-                menu_item_id=item_data['menu_item_id'],
-                quantity=item_data['quantity'],
-                unit_price=item_data['unit_price'],
-                subtotal=item_data['subtotal'],
-                notes=item_data['notes']
+                **item_data
             )
             db.session.add(order_item)
 
         # Atualizar estatísticas do usuário
-        user.update_stats()
+        if user:
+            user.total_orders += 1
+            user.total_spent += total_amount
 
         db.session.commit()
 
@@ -150,7 +196,10 @@ def create_order():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'Erro ao criar pedido: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'message': f'Erro ao criar pedido: {str(e)}'
+        }), 500
 
 @order_bp.route('/orders/<int:order_id>/status', methods=['PUT'])
 def update_order_status(order_id):
@@ -181,6 +230,36 @@ def update_order_status(order_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Erro ao atualizar status: {str(e)}'}), 500
+
+@order_bp.route('/orders/<int:order_id>/payment', methods=['PUT'])
+def update_payment_status(order_id):
+    """Atualizar status de pagamento do pedido"""
+    order = Order.query.get_or_404(order_id)
+    data = request.get_json()
+
+    if not data or 'payment_status' not in data:
+        return jsonify({'success': False, 'message': 'Status de pagamento é obrigatório'}), 400
+
+    valid_payment_statuses = ['pago', 'nao_pago']
+    if data['payment_status'] not in valid_payment_statuses:
+        return jsonify({
+            'success': False,
+            'message': f'Status de pagamento inválido. Valores válidos: {", ".join(valid_payment_statuses)}'
+        }), 400
+
+    try:
+        order.payment_status = data['payment_status']
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Status de pagamento atualizado com sucesso',
+            'order': order.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Erro ao atualizar status de pagamento: {str(e)}'}), 500
 
 @order_bp.route('/orders/<int:order_id>', methods=['PUT'])
 def update_order(order_id):
@@ -236,4 +315,13 @@ def get_order_stats():
 
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro ao obter estatísticas: {str(e)}'}), 500
+
+@order_bp.route('/comanda/<int:mesa>', methods=['GET'])
+def get_comanda_by_mesa(mesa):
+    """Buscar todos os pedidos de uma comanda/mesa específica que estejam abertos"""
+    orders = Order.query.filter_by(mesa=mesa, is_comanda=True, status_comanda='aberta').all()
+    return jsonify({
+        'success': True,
+        'orders': [order.to_dict() for order in orders]
+    })
 
