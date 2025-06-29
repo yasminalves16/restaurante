@@ -1,7 +1,5 @@
 from src.models.user import db
 from datetime import datetime
-from src.models.menu import MenuItem
-from backend.src.main import app
 
 class MenuItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -35,7 +33,4 @@ class MenuItem(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-
-ctx = app.app_context()
-ctx.push()
 
